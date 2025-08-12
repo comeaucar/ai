@@ -147,6 +147,73 @@ describe('parseToolCall', () => {
     `);
   });
 
+  it('should return invalid tool call when empty input is provided for client-executed tools with required parameters', async () => {
+    const result = await parseToolCall({
+      toolCall: {
+        type: 'tool-call',
+        toolName: 'testTool',
+        toolCallId: '123',
+        input: '',
+        providerExecuted: false,
+      },
+      tools: {
+        testTool: tool({
+          inputSchema: z.object({
+            query: z.string(),
+          }),
+        }),
+      } as const,
+      repairToolCall: undefined,
+      messages: [],
+      system: undefined,
+    });
+
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "dynamic": true,
+        "error": [AI_InvalidToolInputError: Invalid input for tool testTool: Tool call is missing required input parameters],
+        "input": "",
+        "invalid": true,
+        "toolCallId": "123",
+        "toolName": "testTool",
+        "type": "tool-call",
+      }
+    `);
+  });
+
+  it('should successfully process empty input for provider-executed tools with required parameters', async () => {
+    const result = await parseToolCall({
+      toolCall: {
+        type: 'tool-call',
+        toolName: 'file_search',
+        toolCallId: '123',
+        input: '',
+        providerExecuted: true,
+      },
+      tools: {
+        file_search: tool({
+          inputSchema: z.object({
+            query: z.string(),
+          }),
+        }),
+      } as const,
+      repairToolCall: undefined,
+      messages: [],
+      system: undefined,
+    });
+
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "input": {},
+        "providerExecuted": true,
+        "providerMetadata": undefined,
+        "toolCallId": "123",
+        "toolName": "file_search",
+        "type": "tool-call",
+      }
+    `);
+  });
+
   it('should throw NoSuchToolError when tools is null', async () => {
     const result = await parseToolCall({
       toolCall: {

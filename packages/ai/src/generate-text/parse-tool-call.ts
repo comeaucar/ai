@@ -107,9 +107,23 @@ async function doParseToolCall<TOOLS extends ToolSet>({
 
   // when the tool call has no arguments, we try passing an empty object to the schema
   // (many LLMs generate empty strings for tool calls with no arguments)
+  // However, if the schema has required properties and this is not a provider-executed tool,
+  // we should not accept empty input
+  const hasRequiredProperties =
+    schema.jsonSchema.required &&
+    Array.isArray(schema.jsonSchema.required) &&
+    schema.jsonSchema.required.length > 0;
+
   const parseResult =
     toolCall.input.trim() === ''
-      ? await safeValidateTypes({ value: {}, schema })
+      ? hasRequiredProperties && !toolCall.providerExecuted
+        ? {
+            success: false as const,
+            error: new Error('Tool call is missing required input parameters'),
+          }
+        : toolCall.providerExecuted
+          ? { success: true as const, value: {} }
+          : await safeValidateTypes({ value: {}, schema })
       : await safeParseJSON({ text: toolCall.input, schema });
 
   if (parseResult.success === false) {
